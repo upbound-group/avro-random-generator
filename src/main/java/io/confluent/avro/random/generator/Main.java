@@ -281,8 +281,8 @@ public class Main {
 
     String footer = String.format(
         "%s%n%s%n",
-        "Currently on Chris Egerton's public GitHub:",
-        "https://github.com/C0urante/avro-random-generator"
+        "Source repository:",
+        "https://github.com/confluentinc/avro-random-generator"
     );
 
     System.err.printf(header + summary + flags + footer);

@@ -119,12 +119,12 @@ uploadArchives {
             pom.project {
                 name 'Avro Random Generator'
                 description 'Avro Random Generator is a tool for randomly generating data to match Avro schemas'
-                url 'https://github.com:C0urante/avro-random-generator'
+                url 'https://github.com:confluentinc/avro-random-generator'
 
                 scm {
-                    url 'https://github.com:C0urante/avro-random-generator'
-                    connection 'scm:git:ssh://github.com:C0urante/avro-random-generator.git'
-                    developerConnection 'scm:git:ssh://github.com:C0urante/avro-random-generator.git'
+                    url 'https://github.com:confluentinc/avro-random-generator'
+                    connection 'scm:git:ssh://github.com:confluentinc/avro-random-generator.git'
+                    developerConnection 'scm:git:ssh://github.com:confluentinc/avro-random-generator.git'
                 }
 
                 licenses {
