@@ -58,8 +58,8 @@ Flags:
     -p, --pretty:	Output each record in prettified format (has no effect if encoding is not JSON) (default)
     -s &lt;schema&gt;, --schema &lt;schema&gt;:	Spoof the schema &lt;schema&gt;
 
-Currently on Chris Egerton's public GitHub:
-https://github.com/C0urante/avro-random-generator
+Source repository:
+https://github.com/confluentinc/avro-random-generator
 </pre>
 
 
