@@ -63,6 +63,19 @@
             }
           }
         }
+      },
+      {
+        "name": "string_iteration",
+        "type": {
+          "type": "string",
+          "arg.properties": {
+            "iteration": {
+              "start": 0,
+              "restart": 10,
+              "step": 1
+            }
+          }
+        }
       }
     ]
 }

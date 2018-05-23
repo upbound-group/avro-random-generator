@@ -63,8 +63,7 @@ public class Generator {
   private static final Schema.Parser schemaParser = new Schema.Parser();
   private static final Map<Schema, Generex> generexCache = new HashMap<>();
   private static final Map<Schema, List<Object>> optionsCache = new HashMap<>();
-  private static final Map<Schema, Iterator<Object>> iteratorCache =
-    new IdentityHashMap<>();
+  private static final Map<String, Iterator<Object>> iteratorCache = new IdentityHashMap<>();
 
   /**
    * The name to use for the top-level JSON property when specifying ARG-specific attributes.
@@ -281,16 +280,16 @@ public class Generator {
    * </table>
    */
   public Object generate() {
-    return generateObject(topLevelSchema);
+    return generateObject(topLevelSchema, "");
   }
 
-  private Object generateObject(Schema schema) {
+  private Object generateObject(Schema schema, String fieldName) {
     Map propertiesProp = getProperties(schema).orElse(Collections.emptyMap());
     if (propertiesProp.containsKey(OPTIONS_PROP)) {
       return generateOption(schema, propertiesProp);
     }
     if (propertiesProp.containsKey(ITERATION_PROP)) {
-      return generateIteration(schema, propertiesProp);
+      return generateIteration(schema, propertiesProp, fieldName);
     }
     switch (schema.getType()) {
       case ARRAY:
@@ -775,139 +774,169 @@ public class Generator {
     );
   }
 
-  private Iterator<Object> parseIterations(Schema schema, Map propertiesProp) {
+  private Iterator<Object> parseIterations(Schema schema, Map propertiesProp, String fieldName) {
     enforceMutualExclusion(
         propertiesProp, ITERATION_PROP,
         LENGTH_PROP, REGEX_PROP, OPTIONS_PROP, RANGE_PROP
     );
 
     Object iterationProp = propertiesProp.get(ITERATION_PROP);
-    if (iterationProp instanceof Map) {
-      Map iterationProps = (Map) iterationProp;
-      switch (schema.getType()) {
-        case BOOLEAN:
-          return getBooleanIterator(iterationProps);
-        case INT: {
-          Integer iterationStartField = getIntegerNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_START,
-              iterationProps
-          );
-          Integer iterationRestartField = getIntegerNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_RESTART,
-              iterationProps
-          );
-          Integer iterationStepField = getIntegerNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_STEP,
-              iterationProps
-          );
-          return getIntegralIterator(
-              iterationStartField != null ? iterationStartField.longValue() : null,
-              iterationRestartField != null ? iterationRestartField.longValue() : null,
-              iterationStepField != null ? iterationStepField.longValue() : null,
-              IntegralIterator.Type.INTEGER
-          );
-        }
-        case LONG: {
-          Long iterationStartField = getIntegralNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_START,
-              iterationProps
-          );
-          Long iterationRestartField = getIntegralNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_RESTART,
-              iterationProps
-          );
-          Long iterationStepField = getIntegralNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_STEP,
-              iterationProps
-          );
-          return getIntegralIterator(
-              iterationStartField,
-              iterationRestartField,
-              iterationStepField,
-              IntegralIterator.Type.LONG
-          );
-        }
-        case FLOAT: {
-          Float iterationStartField = getFloatNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_START,
-              iterationProps
-          );
-          Float iterationRestartField = getFloatNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_RESTART,
-              iterationProps
-          );
-          Float iterationStepField = getFloatNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_STEP,
-              iterationProps
-          );
-          return getDecimalIterator(
-              iterationStartField != null ? iterationStartField.doubleValue() : null,
-              iterationRestartField != null ? iterationRestartField.doubleValue() : null,
-              iterationStepField != null ? iterationStepField.doubleValue() : null,
-              DecimalIterator.Type.FLOAT
-          );
-        }
-        case DOUBLE: {
-          Double iterationStartField = getDecimalNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_START,
-              iterationProps
-          );
-          Double iterationRestartField = getDecimalNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_RESTART,
-              iterationProps
-          );
-          Double iterationStepField = getDecimalNumberField(
-              ITERATION_PROP,
-              ITERATION_PROP_STEP,
-              iterationProps
-          );
-          return getDecimalIterator(
-              iterationStartField,
-              iterationRestartField,
-              iterationStepField,
-              DecimalIterator.Type.DOUBLE
-          );
-        }
-        default:
-          throw new UnsupportedOperationException(String.format(
-              "%s property can only be specified on numeric and boolean schemas, not %s schema",
-              ITERATION_PROP,
-              schema.getType().toString()
-          ));
-      }
-    } else {
+    if (!(iterationProp instanceof Map)) {
       throw new RuntimeException(String.format(
           "%s prop must be an object, was %s instead",
           ITERATION_PROP,
           iterationProp.getClass().getName()
       ));
     }
+
+    Map iterationProps = (Map) iterationProp;
+    switch (schema.getType()) {
+      case BOOLEAN:
+        return getBooleanIterator(iterationProps);
+      case INT:
+        return getIntegerIterator(iterationProps);
+      case LONG:
+        return getLongIterator(iterationProps);
+      case FLOAT:
+        return getFloatIterator(iterationProps);
+      case DOUBLE:
+        return getDoubleIterator(iterationProps);
+      case STRING:
+        return createStringIterator(getIntegerIterator(iterationProps), fieldName);
+      default:
+        throw new UnsupportedOperationException(String.format(
+            "%s property can only be specified on numeric, boolean or string schemas, "
+            + "not %s schema",
+            ITERATION_PROP,
+            schema.getType().toString()
+        ));
+    }
+  }
+
+  private Iterator<Object> getDoubleIterator(final Map iterationProps) {
+    Double iterationStartField = getDecimalNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_START,
+        iterationProps
+    );
+    Double iterationRestartField = getDecimalNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_RESTART,
+        iterationProps
+    );
+    Double iterationStepField = getDecimalNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_STEP,
+        iterationProps
+    );
+    return getDecimalIterator(
+        iterationStartField,
+        iterationRestartField,
+        iterationStepField,
+        DecimalIterator.Type.DOUBLE
+    );
+  }
+
+  private Iterator<Object> getFloatIterator(final Map iterationProps) {
+    Float iterationStartField = getFloatNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_START,
+        iterationProps
+    );
+    Float iterationRestartField = getFloatNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_RESTART,
+        iterationProps
+    );
+    Float iterationStepField = getFloatNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_STEP,
+        iterationProps
+    );
+    return getDecimalIterator(
+        iterationStartField != null ? iterationStartField.doubleValue() : null,
+        iterationRestartField != null ? iterationRestartField.doubleValue() : null,
+        iterationStepField != null ? iterationStepField.doubleValue() : null,
+        DecimalIterator.Type.FLOAT
+    );
+  }
+
+  private Iterator<Object> getLongIterator(final Map iterationProps) {
+    Long iterationStartField = getIntegralNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_START,
+        iterationProps
+    );
+    Long iterationRestartField = getIntegralNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_RESTART,
+        iterationProps
+    );
+    Long iterationStepField = getIntegralNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_STEP,
+        iterationProps
+    );
+    return getIntegralIterator(
+        iterationStartField,
+        iterationRestartField,
+        iterationStepField,
+        IntegralIterator.Type.LONG
+    );
+  }
+
+  private Iterator<Object> createStringIterator(Iterator<Object> inner,
+                                                final String fieldName) {
+    return new Iterator<Object>() {
+      @Override
+      public boolean hasNext() {
+        return inner.hasNext();
+      }
+
+      @Override
+      public Object next() {
+        return fieldName + "_" + inner.next().toString();
+      }
+    };
+  }
+
+  private Iterator<Object> getIntegerIterator(Map iterationProps) {
+    Integer iterationStartField = getIntegerNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_START,
+        iterationProps
+    );
+    Integer iterationRestartField = getIntegerNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_RESTART,
+        iterationProps
+    );
+    Integer iterationStepField = getIntegerNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_STEP,
+        iterationProps
+    );
+    return getIntegralIterator(
+        iterationStartField != null ? iterationStartField.longValue() : null,
+        iterationRestartField != null ? iterationRestartField.longValue() : null,
+        iterationStepField != null ? iterationStepField.longValue() : null,
+        IntegralIterator.Type.INTEGER
+    );
   }
 
   @SuppressWarnings("unchecked")
-  private <T> T generateIteration(Schema schema, Map propertiesProp) {
-    if (!iteratorCache.containsKey(schema)) {
-      iteratorCache.put(schema, parseIterations(schema, propertiesProp));
+  private <T> T generateIteration(Schema schema, Map propertiesProp, String fieldName) {
+    if (!iteratorCache.containsKey(fieldName)) {
+      iteratorCache.put(fieldName, parseIterations(schema, propertiesProp, fieldName));
     }
-    return (T) iteratorCache.get(schema).next();
+    return (T) iteratorCache.get(fieldName).next();
   }
 
   private Collection<Object> generateArray(Schema schema, Map propertiesProp) {
     int length = getLengthBounds(propertiesProp).random();
     Collection<Object> result = new ArrayList<>(length);
     for (int i = 0; i < length; i++) {
-      result.add(generateObject(schema.getElementType()));
+      result.add(generateObject(schema.getElementType(), ""));
     }
     return result;
   }
@@ -1056,7 +1085,7 @@ public class Generator {
     Object keyProp = propertiesProp.get(KEYS_PROP);
     if (keyProp == null) {
       for (int i = 0; i < length; i++) {
-        result.put(generateRandomString(1), generateObject(schema.getValueType()));
+        result.put(generateRandomString(1), generateObject(schema.getValueType(), ""));
       }
     } else if (keyProp instanceof Map) {
       Map keyPropMap = (Map) keyProp;
@@ -1065,14 +1094,14 @@ public class Generator {
           optionsCache.put(schema, parseOptions(Schema.create(Schema.Type.STRING), keyPropMap));
         }
         for (int i = 0; i < length; i++) {
-          result.put(generateOption(schema, keyPropMap), generateObject(schema.getValueType()));
+          result.put(generateOption(schema, keyPropMap), generateObject(schema.getValueType(), ""));
         }
       } else {
         int keyLength = getLengthBounds(keyPropMap.get(LENGTH_PROP)).random();
         for (int i = 0; i < length; i++) {
           result.put(
               generateRandomString(keyLength),
-              generateObject(schema.getValueType())
+              generateObject(schema.getValueType(), "")
           );
         }
       }
@@ -1092,7 +1121,7 @@ public class Generator {
   private GenericRecord generateRecord(Schema schema) {
     GenericRecordBuilder builder = new GenericRecordBuilder(schema);
     for (Schema.Field field : schema.getFields()) {
-      builder.set(field, generateObject(field.schema()));
+      builder.set(field, generateObject(field.schema(), field.name()));
     }
     return builder.build();
   }
@@ -1129,7 +1158,7 @@ public class Generator {
 
   private Object generateUnion(Schema schema) {
     List<Schema> schemas = schema.getTypes();
-    return generateObject(schemas.get(random.nextInt(schemas.size())));
+    return generateObject(schemas.get(random.nextInt(schemas.size())), "");
   }
 
   private LengthBounds getLengthBounds(Map propertiesProp) {
@@ -1164,7 +1193,7 @@ public class Generator {
       maxLength = maxLength != null ? maxLength : Integer.MAX_VALUE;
       if (minLength < 0) {
         throw new RuntimeException(String.format(
-           "%s field of %s property cannot be negative",
+            "%s field of %s property cannot be negative",
             LENGTH_PROP_MIN,
             LENGTH_PROP
         ));
