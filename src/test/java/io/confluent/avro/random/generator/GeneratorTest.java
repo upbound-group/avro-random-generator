@@ -1,5 +1,7 @@
 package io.confluent.avro.random.generator;
 
+import static io.confluent.avro.random.generator.util.ResourceUtil.loadContent;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -20,29 +22,31 @@ public class GeneratorTest {
 
   private static final String SCHEMA_TEST_DIR = "test-schemas";
   private static final Random RNG = new Random();
+  private final String fileName;
   private final String content;
 
   /**
    * Run the test for each test schema.
    *
-   * @return array of [filename, file-content]
+   * @return array of [fileName, file-content]
    */
   @Parameterized.Parameters(name = "{0}")
   public static Collection<Object[]> data() {
     return findTestSchemas().stream()
-        .map(filename -> new Object[]{filename, loadContent(filename)})
+        .map(fileName -> new Object[]{fileName, loadContent(SCHEMA_TEST_DIR + "/" + fileName)})
         .collect(Collectors.toCollection(ArrayList::new));
   }
 
-  @SuppressWarnings("unused") // Used to name tests.
-  public GeneratorTest(final String filename, final String content) {
+  public GeneratorTest(final String fileName, final String content) {
+    this.fileName = fileName;
     this.content = content;
   }
 
   @Test
   public void shouldHandleSchema() {
     final Generator generator = new Generator(content, RNG);
-    generator.generate();
+    final Object generated = generator.generate();
+    System.out.println(fileName + ": " + generated);
   }
 
   private static List<String> findTestSchemas() {
@@ -58,19 +62,6 @@ public class GeneratorTest {
 
     } catch (final IOException ioe) {
       throw new RuntimeException("failed to find test schemas", ioe);
-    }
-  }
-
-  private static String loadContent(final String filename) {
-    final InputStream testDir =
-        GeneratorTest.class.getClassLoader().getResourceAsStream(SCHEMA_TEST_DIR + "/" + filename);
-
-    try (BufferedReader reader = new BufferedReader(
-        new InputStreamReader(testDir, StandardCharsets.UTF_8))) {
-
-      return reader.lines().collect(Collectors.joining("\n"));
-    } catch (final IOException ioe) {
-      throw new RuntimeException("failed to find test test-schema " + filename, ioe);
     }
   }
 }

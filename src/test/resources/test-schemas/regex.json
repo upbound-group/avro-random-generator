@@ -66,6 +66,18 @@
                 }
             }
           }
+      },
+      {
+        "name": "prefixed_and_suffixed",
+        "type":
+          {
+            "type": "string",
+            "arg.properties": {
+              "regex": "[a-zA-Z]*",
+              "prefix" : "pre-",
+              "suffix" : "-post"
+            }
+          }
       }
     ]
 }

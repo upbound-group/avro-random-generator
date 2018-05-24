@@ -58,12 +58,12 @@ import java.util.Random;
 /**
  * Generates Java objects according to an {@link Schema Avro Schema}.
  */
+@SuppressWarnings("WeakerAccess")
 public class Generator {
 
-  private static final Schema.Parser schemaParser = new Schema.Parser();
   private static final Map<Schema, Generex> generexCache = new HashMap<>();
   private static final Map<Schema, List<Object>> optionsCache = new HashMap<>();
-  private static final Map<String, Iterator<Object>> iteratorCache = new IdentityHashMap<>();
+  private static final Map<Schema, Iterator<Object>> iteratorCache = new IdentityHashMap<>();
 
   /**
    * The name to use for the top-level JSON property when specifying ARG-specific attributes.
@@ -93,6 +93,20 @@ public class Generator {
    * be used in conjunction with {@link #LENGTH_PROP}. Must be given as a string.
    */
   public static final String REGEX_PROP = "regex";
+
+  /**
+   * The name of the attribute for specifying a prefix that generated values should begin with. Will
+   * be prepended to the beginning of any string values generated. Can be used in conjunction with
+   * {@link #SUFFIX_PROP}.
+   */
+  public static final String PREFIX_PROP = "prefix";
+
+  /**
+   * The name of the attribute for specifying a suffix that generated values should end with. Will
+   * be appended to the end of any string values generated. Can be used in conjunction with
+   * {@link #PREFIX_PROP}.
+   */
+  public static final String SUFFIX_PROP = "suffix";
 
   /**
    * The name of the attribute for specifying specific values which should be randomly chosen from
@@ -191,7 +205,7 @@ public class Generator {
    * @param random The object to use for generating randomness when producing values.
    */
   public Generator(String schemaString, Random random) {
-    this(schemaParser.parse(schemaString), random);
+    this(new Schema.Parser().parse(schemaString), random);
   }
 
   /**
@@ -201,7 +215,7 @@ public class Generator {
    * @throws IOException if an error occurs while reading from the input stream.
    */
   public Generator(InputStream schemaStream, Random random) throws IOException {
-    this(schemaParser.parse(schemaStream), random);
+    this(new Schema.Parser().parse(schemaStream), random);
   }
 
   /**
@@ -211,7 +225,7 @@ public class Generator {
    * @throws IOException if an error occurs while reading from the schema file.
    */
   public Generator(File schemaFile, Random random) throws IOException {
-    this(schemaParser.parse(schemaFile), random);
+    this(new Schema.Parser().parse(schemaFile), random);
   }
 
   /**
@@ -289,7 +303,7 @@ public class Generator {
       return generateOption(schema, propertiesProp);
     }
     if (propertiesProp.containsKey(ITERATION_PROP)) {
-      return generateIteration(schema, propertiesProp, fieldName);
+      return generateIteration(schema, propertiesProp);
     }
     switch (schema.getType()) {
       case ARRAY:
@@ -774,7 +788,7 @@ public class Generator {
     );
   }
 
-  private Iterator<Object> parseIterations(Schema schema, Map propertiesProp, String fieldName) {
+  private Iterator<Object> parseIterations(Schema schema, Map propertiesProp) {
     enforceMutualExclusion(
         propertiesProp, ITERATION_PROP,
         LENGTH_PROP, REGEX_PROP, OPTIONS_PROP, RANGE_PROP
@@ -802,7 +816,7 @@ public class Generator {
       case DOUBLE:
         return getDoubleIterator(iterationProps);
       case STRING:
-        return createStringIterator(getIntegerIterator(iterationProps), fieldName);
+        return createStringIterator(getIntegerIterator(iterationProps), propertiesProp);
       default:
         throw new UnsupportedOperationException(String.format(
             "%s property can only be specified on numeric, boolean or string schemas, "
@@ -885,8 +899,7 @@ public class Generator {
     );
   }
 
-  private Iterator<Object> createStringIterator(Iterator<Object> inner,
-                                                final String fieldName) {
+  private Iterator<Object> createStringIterator(Iterator<Object> inner, Map propertiesProp) {
     return new Iterator<Object>() {
       @Override
       public boolean hasNext() {
@@ -895,7 +908,7 @@ public class Generator {
 
       @Override
       public Object next() {
-        return fieldName + "_" + inner.next().toString();
+        return prefixAndSuffixString(inner.next().toString(), propertiesProp);
       }
     };
   }
@@ -925,11 +938,11 @@ public class Generator {
   }
 
   @SuppressWarnings("unchecked")
-  private <T> T generateIteration(Schema schema, Map propertiesProp, String fieldName) {
-    if (!iteratorCache.containsKey(fieldName)) {
-      iteratorCache.put(fieldName, parseIterations(schema, propertiesProp, fieldName));
+  private <T> T generateIteration(Schema schema, Map propertiesProp) {
+    if (!iteratorCache.containsKey(schema)) {
+      iteratorCache.put(schema, parseIterations(schema, propertiesProp));
     }
-    return (T) iteratorCache.get(fieldName).next();
+    return (T) iteratorCache.get(schema).next();
   }
 
   private Collection<Object> generateArray(Schema schema, Map propertiesProp) {
@@ -1149,11 +1162,31 @@ public class Generator {
 
   private String generateString(Schema schema, Map propertiesProp) {
     Object regexProp = propertiesProp.get(REGEX_PROP);
+
+    String result;
     if (regexProp != null) {
-      return generateRegexString(schema, regexProp, getLengthBounds(propertiesProp));
+      result = generateRegexString(schema, regexProp, getLengthBounds(propertiesProp));
     } else {
-      return generateRandomString(getLengthBounds(propertiesProp).random());
+      result = generateRandomString(getLengthBounds(propertiesProp).random());
     }
+
+    return  prefixAndSuffixString(result, propertiesProp);
+  }
+
+  private String prefixAndSuffixString(String result, Map propertiesProp) {
+    Object prefixProp = propertiesProp.get(PREFIX_PROP);
+    if (prefixProp != null && !(prefixProp instanceof String)) {
+      throw new RuntimeException(String.format("%s property must be a string", PREFIX_PROP));
+    }
+    String prefix = prefixProp != null ? (String) prefixProp : "";
+
+    Object suffixProp = propertiesProp.get(SUFFIX_PROP);
+    if (suffixProp != null && !(suffixProp instanceof String)) {
+      throw new RuntimeException(String.format("%s property must be a string", SUFFIX_PROP));
+    }
+    String suffix = suffixProp != null ? (String) suffixProp : "";
+
+    return prefix + result + suffix;
   }
 
   private Object generateUnion(Schema schema) {

@@ -70,12 +70,46 @@
           "type": "string",
           "arg.properties": {
             "iteration": {
-              "start": 0,
-              "restart": 10,
+              "start": 1,
+              "restart": 3,
               "step": 1
             }
           }
         }
-      }
+      },
+      {
+        "name": "prefixed_suffixed_string_iteration",
+        "type": {
+          "type": "string",
+          "arg.properties": {
+            "iteration": {
+              "start": 0,
+              "restart": 10,
+              "step": 1
+            },
+            "prefix" : "pre-",
+            "suffix" : "-post"
+          }
+        }
+      },
+      {"name": "nested", "type": {
+          "type": "record",
+          "name": "AddressRecord",
+          "fields": [
+            {
+              "name": "long_iteration",
+              "type": {
+                "type": "long",
+                "arg.properties": {
+                  "iteration": {
+                    "start": -50,
+                    "restart": 100,
+                    "step": 47
+                  }
+                }
+              }
+            }
+          ]}
+        }
     ]
 }
