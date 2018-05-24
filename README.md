@@ -97,6 +97,10 @@ or "max" must be specified, and if present, values for either must be
 numbers). __Defaults to `{"min": 8, "max": 16}`__.
 + __regex:__ A JSON string describing a regular expression that a string
 should conform to.
++ __prefix:__ A JSON string containing a prefix that should be prepended
+to the beginning of a string.
++ __suffix:__ A JSON string containing a suffix that should be appended
+to the end of a string.
 + __keys:__ A JSON object containing any of the above which is used to
 describe the kind of data that should be used for generating keys for
 spoofed maps.
