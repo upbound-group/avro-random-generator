@@ -294,10 +294,10 @@ public class Generator {
    * </table>
    */
   public Object generate() {
-    return generateObject(topLevelSchema, "");
+    return generateObject(topLevelSchema);
   }
 
-  private Object generateObject(Schema schema, String fieldName) {
+  private Object generateObject(Schema schema) {
     Map propertiesProp = getProperties(schema).orElse(Collections.emptyMap());
     if (propertiesProp.containsKey(OPTIONS_PROP)) {
       return generateOption(schema, propertiesProp);
@@ -949,7 +949,7 @@ public class Generator {
     int length = getLengthBounds(propertiesProp).random();
     Collection<Object> result = new ArrayList<>(length);
     for (int i = 0; i < length; i++) {
-      result.add(generateObject(schema.getElementType(), ""));
+      result.add(generateObject(schema.getElementType()));
     }
     return result;
   }
@@ -1098,7 +1098,7 @@ public class Generator {
     Object keyProp = propertiesProp.get(KEYS_PROP);
     if (keyProp == null) {
       for (int i = 0; i < length; i++) {
-        result.put(generateRandomString(1), generateObject(schema.getValueType(), ""));
+        result.put(generateRandomString(1), generateObject(schema.getValueType()));
       }
     } else if (keyProp instanceof Map) {
       Map keyPropMap = (Map) keyProp;
@@ -1107,14 +1107,14 @@ public class Generator {
           optionsCache.put(schema, parseOptions(Schema.create(Schema.Type.STRING), keyPropMap));
         }
         for (int i = 0; i < length; i++) {
-          result.put(generateOption(schema, keyPropMap), generateObject(schema.getValueType(), ""));
+          result.put(generateOption(schema, keyPropMap), generateObject(schema.getValueType()));
         }
       } else {
         int keyLength = getLengthBounds(keyPropMap.get(LENGTH_PROP)).random();
         for (int i = 0; i < length; i++) {
           result.put(
               generateRandomString(keyLength),
-              generateObject(schema.getValueType(), "")
+              generateObject(schema.getValueType())
           );
         }
       }
@@ -1134,7 +1134,7 @@ public class Generator {
   private GenericRecord generateRecord(Schema schema) {
     GenericRecordBuilder builder = new GenericRecordBuilder(schema);
     for (Schema.Field field : schema.getFields()) {
-      builder.set(field, generateObject(field.schema(), field.name()));
+      builder.set(field, generateObject(field.schema()));
     }
     return builder.build();
   }
@@ -1191,7 +1191,7 @@ public class Generator {
 
   private Object generateUnion(Schema schema) {
     List<Schema> schemas = schema.getTypes();
-    return generateObject(schemas.get(random.nextInt(schemas.size())), "");
+    return generateObject(schemas.get(random.nextInt(schemas.size())));
   }
 
   private LengthBounds getLengthBounds(Map propertiesProp) {
