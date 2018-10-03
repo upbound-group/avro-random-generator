@@ -16,7 +16,9 @@
 
 package io.confluent.avro.random.generator;
 
+import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
 
@@ -139,24 +141,33 @@ public class Main {
       System.exit(1);
     }
 
-    try (OutputStream output = getOutput(outputFile)) {
-      Encoder encoder;
-
-      if (encoding == JSON_ENCODING) {
-        encoder = EncoderFactory.get().jsonEncoder(generator.schema(), output, jsonFormat);
-      } else {
-        encoder = EncoderFactory.get().binaryEncoder(output, null);
+    DatumWriter<Object> dataWriter = new GenericDatumWriter<>(generator.schema());
+    if (encoding == JSON_ENCODING) {
+      try (OutputStream output = getOutput(outputFile)) {
+        Encoder encoder = EncoderFactory.get().jsonEncoder(generator.schema(), output, jsonFormat);
+        for (int i = 0; i < iterations; i++) {
+          dataWriter.write(generator.generate(), encoder);
+        }
+        encoder.flush();
+        output.write('\n');
+      } catch (IOException ioe) {
+        System.err.println(
+            "Error occurred while trying to write to output file: " + ioe.getLocalizedMessage()
+        );
+        System.exit(1);
       }
-
-      GenericDatumWriter<Object> objectWriter = new GenericDatumWriter<>(generator.schema());
-      for (int i = 0; i < iterations; i++) {
-        objectWriter.write(generator.generate(), encoder);
+    } else {
+      try (DataFileWriter<Object> dataFileWriter =
+               new DataFileWriter<>(dataWriter).create(generator.schema(), getOutput(outputFile))) {
+        for (int i = 0; i < iterations; i++) {
+          dataFileWriter.append(generator.generate());
+        }
+      } catch (IOException ioe) {
+        System.err.println(
+            "Error occurred while trying to write to output file: " + ioe.getLocalizedMessage()
+        );
+        System.exit(1);
       }
-      encoder.flush();
-      output.write('\n');
-    } catch (IOException ioe) {
-      System.err.println("Error occurred while trying to write to output file");
-      System.exit(1);
     }
   }
 
