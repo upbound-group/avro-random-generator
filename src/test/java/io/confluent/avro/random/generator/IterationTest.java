@@ -4,6 +4,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import io.confluent.avro.random.generator.util.ResourceUtil;
+import java.util.stream.IntStream;
 import org.apache.avro.generic.GenericRecord;
 import org.junit.Before;
 import org.junit.Test;
@@ -51,5 +52,14 @@ public class IterationTest {
   public void shouldSupportPrefixAndSuffix() {
     final GenericRecord generated = (GenericRecord) generator.generate();
     assertThat(generated.get("prefixed_suffixed_string_iteration"), is("pre-0-post"));
+  }
+
+  @Test
+  public void shouldGenerateFromSameSchemaOnMultipleThreads() {
+    IntStream.range(0, 10).parallel()
+        .forEach(idx -> {
+          final Generator generator = new Generator(ITERATION_SCHEMA, new Random());
+          generator.generate();
+        });
   }
 }
