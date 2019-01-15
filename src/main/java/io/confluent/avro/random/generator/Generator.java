@@ -59,9 +59,9 @@ import java.util.Random;
 @SuppressWarnings("WeakerAccess")
 public class Generator {
 
-  private static final Map<Schema, Generex> generexCache = new HashMap<>();
-  private static final Map<Schema, List<Object>> optionsCache = new HashMap<>();
-  private static final Map<Schema, Iterator<Object>> iteratorCache = new IdentityHashMap<>();
+  private final Map<Schema, Generex> generexCache = new HashMap<>();
+  private final Map<Schema, List<Object>> optionsCache = new HashMap<>();
+  private final Map<Schema, Iterator<Object>> iteratorCache = new IdentityHashMap<>();
 
   /**
    * The name to use for the top-level JSON property when specifying ARG-specific attributes.
