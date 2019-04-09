@@ -1,0 +1,43 @@
+{ "type": "record",
+  "name": "ranges",
+  "namespace": "io.confluent.avro.random.generator",
+  "fields":
+    [
+      {
+        "name": "int_range",
+        "type": {
+          "type": "int",
+          "arg.properties": {
+            "range": {
+              "min": -10,
+              "max": 10
+            }
+          }
+        }
+      },
+      {
+        "name": "float_range",
+        "type": {
+          "type": "float",
+          "arg.properties": {
+            "range": {
+              "min": -10.0,
+              "max": 10.0
+            }
+          }
+        }
+      },
+      {
+        "name": "double_range",
+        "type": {
+          "type": "double",
+          "arg.properties": {
+            "range": {
+              "min": -10.0,
+              "max": 10.0
+            }
+          }
+        }
+      }
+    ]
+}

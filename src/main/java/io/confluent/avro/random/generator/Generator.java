@@ -1277,7 +1277,7 @@ public class Generator {
 
   private Float getFloatNumberField(String property, String field, Map propsMap) {
     Double result = getDecimalNumberField(property, field, propsMap);
-    if (result != null && (result > Float.MAX_VALUE || result < -1 * Float.MIN_VALUE)) {
+    if (result != null && (result > Float.MAX_VALUE || result < -1 * Float.MAX_VALUE)) {
       throw new RuntimeException(String.format(
           "'%s' field of %s property must be a valid float for float schemas",
           field,

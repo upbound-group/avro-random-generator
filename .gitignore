@@ -12,5 +12,6 @@ bin/
 *.iml
 *.iws
 *.ipr
+out/
 
 .DS_STORE
