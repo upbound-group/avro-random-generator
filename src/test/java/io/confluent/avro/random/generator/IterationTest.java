@@ -4,12 +4,12 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import io.confluent.avro.random.generator.util.ResourceUtil;
-import java.util.stream.IntStream;
 import org.apache.avro.generic.GenericRecord;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Random;
+import java.util.stream.IntStream;
 
 
 public class IterationTest {

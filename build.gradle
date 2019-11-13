@@ -151,7 +151,7 @@ artifacts {
 dependencies {
     compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.21'
 
-    compile group: 'org.apache.avro', name: 'avro', version: '1.8.1'
+    compile group: 'org.apache.avro', name: 'avro', version: '1.9.1'
 
     compile group: 'com.github.mifmif', name: 'generex', version: '1.0.1'
 
