@@ -1,6 +1,7 @@
 package io.confluent.avro.random.generator;
 
 import static io.confluent.avro.random.generator.util.ResourceUtil.loadContent;
+import static junit.framework.TestCase.assertEquals;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -63,5 +64,14 @@ public class GeneratorTest {
     } catch (final IOException ioe) {
       throw new RuntimeException("failed to find test schemas", ioe);
     }
+  }
+
+  @Test
+  public void shouldGenerateValuesDeterministically() {
+    long seed = 100L;
+    Generator generatorA = new Generator(content, new Random(seed));
+    Generator generatorB = new Generator(content, new Random(seed));
+    assertEquals(generatorA.generate(), generatorB.generate());
+    assertEquals(generatorA.generate(), generatorB.generate());
   }
 }

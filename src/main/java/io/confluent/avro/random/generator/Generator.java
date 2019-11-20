@@ -1143,7 +1143,7 @@ public class Generator {
       if (!(regexProp instanceof String)) {
         throw new RuntimeException(String.format("%s property must be a string", REGEX_PROP));
       }
-      generexCache.put(schema, new Generex((String) regexProp));
+      generexCache.put(schema, new Generex((String) regexProp, random));
     }
     // Generex.random(low, high) generates in range [low, high]; we want [low, high), so subtract
     // 1 from maxLength
