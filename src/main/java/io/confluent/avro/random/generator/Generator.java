@@ -18,6 +18,7 @@ package io.confluent.avro.random.generator;
 
 import com.mifmif.common.regex.Generex;
 
+import java.math.BigDecimal;
 import org.apache.avro.Schema;
 
 import org.apache.avro.generic.GenericData;
@@ -1450,33 +1451,33 @@ public class Generator {
       FLOAT, DOUBLE
     }
 
-    private final double start;
-    private final double restart;
-    private final double step;
+    private final BigDecimal start;
+    private final BigDecimal restart;
+    private final BigDecimal modulo;
+    private final BigDecimal step;
     private final Type type;
-    private double current;
+    private BigDecimal current;
 
     public DecimalIterator(double start, double restart, double step, double initial, Type type) {
-      this.start = start;
-      this.restart = restart;
-      this.step = step;
+      this.start = BigDecimal.valueOf(start);
+      this.restart = BigDecimal.valueOf(restart);
+      this.modulo = this.restart.subtract(this.start);
+      this.step = BigDecimal.valueOf(step);
       this.type = type;
-      current = initial;
+      current = BigDecimal.valueOf(initial).subtract(this.start);
     }
 
     @Override
     public Object next() {
-      double result = current;
-      if ((step > 0 && current >= restart - step) || (step < 0 && current <= restart - step)) {
-        current = start + modulo(step - (restart - current), restart - start);
-      } else {
-        current += step;
-      }
+      BigDecimal result = current.add(start);
+      current = current
+          .add(step)
+          .divideAndRemainder(modulo)[1];
       switch (type) {
         case FLOAT:
-          return (float) result;
+          return result.floatValue();
         case DOUBLE:
-          return result;
+          return result.doubleValue();
         default:
           throw new RuntimeException(String.format("Unexpected Type: %s", type));
       }
@@ -1485,12 +1486,6 @@ public class Generator {
     @Override
     public boolean hasNext() {
       return true;
-    }
-
-    // first % second, but with first guarantee that the result will always have the same sign as
-    // second
-    private static double modulo(double first, double second) {
-      return ((first % second) + second) % second;
     }
   }
 
