@@ -183,6 +183,12 @@ public class Generator {
    * {@link #ITERATION_PROP_RESTART} is less than the value for {@link #ITERATION_PROP_START}.
    */
   public static final String ITERATION_PROP_STEP = "step";
+  /**
+   * The name of the attribute for specifying the initial value in a schema with iterative
+   * generation. If given, must be a numeric type that is integral if the given schema is as well.
+   * If not given, defaults to the value for {@link #ITERATION_PROP_START}.
+   */
+  public static final String ITERATION_PROP_INITIAL = "initial";
 
   private final Schema topLevelSchema;
   private final Random random;
@@ -559,13 +565,26 @@ public class Generator {
           ITERATION_PROP_STEP
       ));
     }
-    return new BooleanIterator((Boolean) startProp);
+    Object initialProp = startProp;
+    if (iterationProps.containsKey(ITERATION_PROP_INITIAL)) {
+      initialProp = iterationProps.get(ITERATION_PROP_INITIAL);
+      if (!(initialProp instanceof Boolean)) {
+        throw new RuntimeException(String.format(
+            "%s field of %s property for a boolean schema must be a boolean, was %s instead",
+            ITERATION_PROP_INITIAL,
+            ITERATION_PROP,
+            initialProp.getClass().getName()
+        ));
+      }
+    }
+    return new BooleanIterator((Boolean) initialProp);
   }
 
   private Iterator<Object> getIntegralIterator(
       Long iterationStartField,
       Long iterationRestartField,
       Long iterationStepField,
+      Long iterationInitialField,
       IntegralIterator.Type type) {
 
     if (iterationStartField == null) {
@@ -666,10 +685,16 @@ public class Generator {
       }
     }
 
+    long iterationInitial = iterationStart;
+    if (iterationInitialField != null) {
+      iterationInitial = iterationInitialField;
+    }
+
     return new IntegralIterator(
         iterationStart,
         iterationRestart,
         iterationStep,
+        iterationInitial,
         type
     );
   }
@@ -678,6 +703,7 @@ public class Generator {
       Double iterationStartField,
       Double iterationRestartField,
       Double iterationStepField,
+      Double iterationInitialField,
       DecimalIterator.Type type) {
 
     if (iterationStartField == null) {
@@ -778,10 +804,16 @@ public class Generator {
       }
     }
 
+    double iterationInitial = iterationStart;
+    if (iterationInitialField != null) {
+      iterationInitial = iterationInitialField;
+    }
+
     return new DecimalIterator(
         iterationStart,
         iterationRestart,
         iterationStep,
+        iterationInitial,
         type
     );
   }
@@ -841,10 +873,16 @@ public class Generator {
         ITERATION_PROP_STEP,
         iterationProps
     );
+    Double iterationInitialField = getDecimalNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_INITIAL,
+        iterationProps
+    );
     return getDecimalIterator(
         iterationStartField,
         iterationRestartField,
         iterationStepField,
+        iterationInitialField,
         DecimalIterator.Type.DOUBLE
     );
   }
@@ -865,10 +903,16 @@ public class Generator {
         ITERATION_PROP_STEP,
         iterationProps
     );
+    Float iterationInitialField = getFloatNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_INITIAL,
+        iterationProps
+    );
     return getDecimalIterator(
         iterationStartField != null ? iterationStartField.doubleValue() : null,
         iterationRestartField != null ? iterationRestartField.doubleValue() : null,
         iterationStepField != null ? iterationStepField.doubleValue() : null,
+        iterationInitialField != null ? iterationInitialField.doubleValue() : null,
         DecimalIterator.Type.FLOAT
     );
   }
@@ -889,10 +933,16 @@ public class Generator {
         ITERATION_PROP_STEP,
         iterationProps
     );
+    Long iterationInitialField = getIntegralNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_INITIAL,
+        iterationProps
+    );
     return getIntegralIterator(
         iterationStartField,
         iterationRestartField,
         iterationStepField,
+        iterationInitialField,
         IntegralIterator.Type.LONG
     );
   }
@@ -927,10 +977,16 @@ public class Generator {
         ITERATION_PROP_STEP,
         iterationProps
     );
+    Integer iterationInitialField = getIntegerNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_INITIAL,
+        iterationProps
+    );
     return getIntegralIterator(
         iterationStartField != null ? iterationStartField.longValue() : null,
         iterationRestartField != null ? iterationRestartField.longValue() : null,
         iterationStepField != null ? iterationStepField.longValue() : null,
+        iterationInitialField != null ? iterationInitialField.longValue() : null,
         IntegralIterator.Type.INTEGER
     );
   }
@@ -1351,12 +1407,12 @@ public class Generator {
     private final Type type;
     private long current;
 
-    public IntegralIterator(long start, long restart, long step, Type type) {
+    public IntegralIterator(long start, long restart, long step, long initial, Type type) {
       this.start = start;
       this.restart = restart;
       this.step = step;
       this.type = type;
-      current = start;
+      current = initial;
     }
 
     @Override
@@ -1400,12 +1456,12 @@ public class Generator {
     private final Type type;
     private double current;
 
-    public DecimalIterator(double start, double restart, double step, Type type) {
+    public DecimalIterator(double start, double restart, double step, double initial, Type type) {
       this.start = start;
       this.restart = restart;
       this.step = step;
       this.type = type;
-      current = start;
+      current = initial;
     }
 
     @Override
