@@ -18,6 +18,8 @@ package io.confluent.avro.random.generator;
 
 import com.mifmif.common.regex.Generex;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import org.apache.avro.Schema;
 
 import org.apache.avro.generic.GenericData;
@@ -186,6 +188,7 @@ public class Generator {
 
   private final Schema topLevelSchema;
   private final Random random;
+  private final long count;
 
   /**
    * Creates a generator out of an already-parsed {@link Schema}.
@@ -193,8 +196,13 @@ public class Generator {
    * @param random The object to use for generating randomness when producing values.
    */
   public Generator(Schema topLevelSchema, Random random) {
+    this(topLevelSchema, random, 0L);
+  }
+
+  public Generator(Schema topLevelSchema, Random random, long count) {
     this.topLevelSchema = topLevelSchema;
     this.random = random;
+    this.count = count;
   }
 
   /**
@@ -203,7 +211,11 @@ public class Generator {
    * @param random The object to use for generating randomness when producing values.
    */
   public Generator(String schemaString, Random random) {
-    this(new Schema.Parser().parse(schemaString), random);
+    this(schemaString, random, 0L);
+  }
+
+  public Generator(String schemaString, Random random, long count) {
+    this(new Schema.Parser().parse(schemaString), random, count);
   }
 
   /**
@@ -213,7 +225,11 @@ public class Generator {
    * @throws IOException if an error occurs while reading from the input stream.
    */
   public Generator(InputStream schemaStream, Random random) throws IOException {
-    this(new Schema.Parser().parse(schemaStream), random);
+    this(schemaStream, random, 0L);
+  }
+
+  public Generator(InputStream schemaStream, Random random, long count) throws IOException {
+    this(new Schema.Parser().parse(schemaStream), random, count);
   }
 
   /**
@@ -223,7 +239,11 @@ public class Generator {
    * @throws IOException if an error occurs while reading from the schema file.
    */
   public Generator(File schemaFile, Random random) throws IOException {
-    this(new Schema.Parser().parse(schemaFile), random);
+    this(schemaFile, random, 0L);
+  }
+
+  public Generator(File schemaFile, Random random, long count) throws IOException {
+    this(new Schema.Parser().parse(schemaFile), random, count);
   }
 
   /**
@@ -559,6 +579,10 @@ public class Generator {
           ITERATION_PROP_STEP
       ));
     }
+
+    // If an odd number of records have been generated previously, then the boolean will have
+    // changed state effectively once, and so the start state should be inverted.
+    startProp = (count % 2 == 1) ^ ((Boolean) startProp);
     return new BooleanIterator((Boolean) startProp);
   }
 
@@ -670,6 +694,7 @@ public class Generator {
         iterationStart,
         iterationRestart,
         iterationStep,
+        count,
         type
     );
   }
@@ -782,6 +807,7 @@ public class Generator {
         iterationStart,
         iterationRestart,
         iterationStep,
+        count,
         type
     );
   }
@@ -1351,12 +1377,23 @@ public class Generator {
     private final Type type;
     private long current;
 
-    public IntegralIterator(long start, long restart, long step, Type type) {
+    public IntegralIterator(long start, long restart, long step, long count, Type type) {
       this.start = start;
       this.restart = restart;
       this.step = step;
       this.type = type;
       current = start;
+      if (count > 0) {
+        current = BigInteger.valueOf(count)
+            .multiply(BigInteger.valueOf(step).abs())
+            .mod(
+                BigInteger.valueOf(restart)
+                    .subtract(BigInteger.valueOf(start))
+                    .abs())
+            .multiply(step > 0 ? BigInteger.ONE : BigInteger.ONE.negate())
+            .add(BigInteger.valueOf(start))
+            .longValue();
+      }
     }
 
     @Override
@@ -1394,33 +1431,38 @@ public class Generator {
       FLOAT, DOUBLE
     }
 
-    private final double start;
-    private final double restart;
-    private final double step;
+    private final BigDecimal start;
+    private final BigDecimal restart;
+    private final BigDecimal modulo;
+    private final BigDecimal step;
     private final Type type;
-    private double current;
+    private BigDecimal current;
 
-    public DecimalIterator(double start, double restart, double step, Type type) {
-      this.start = start;
-      this.restart = restart;
-      this.step = step;
+    public DecimalIterator(double start, double restart, double step, long count, Type type) {
+      this.start = BigDecimal.valueOf(start);
+      this.restart = BigDecimal.valueOf(restart);
+      this.modulo = this.restart.subtract(this.start);
+      this.step = BigDecimal.valueOf(step);
       this.type = type;
-      current = start;
+      current = BigDecimal.ZERO;
+      if (count > 0) {
+        current = BigDecimal.valueOf(count)
+            .multiply(this.step)
+            .divideAndRemainder(this.modulo)[1];
+      }
     }
 
     @Override
     public Object next() {
-      double result = current;
-      if ((step > 0 && current >= restart - step) || (step < 0 && current <= restart - step)) {
-        current = start + modulo(step - (restart - current), restart - start);
-      } else {
-        current += step;
-      }
+      current = current
+          .add(step)
+          .divideAndRemainder(modulo)[1];
+      BigDecimal result = current.add(start);
       switch (type) {
         case FLOAT:
-          return (float) result;
+          return result.floatValue();
         case DOUBLE:
-          return result;
+          return result.doubleValue();
         default:
           throw new RuntimeException(String.format("Unexpected Type: %s", type));
       }
@@ -1429,12 +1471,6 @@ public class Generator {
     @Override
     public boolean hasNext() {
       return true;
-    }
-
-    // first % second, but with first guarantee that the result will always have the same sign as
-    // second
-    private static double modulo(double first, double second) {
-      return ((first % second) + second) % second;
     }
   }
 

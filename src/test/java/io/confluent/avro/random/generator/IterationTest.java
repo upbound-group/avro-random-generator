@@ -62,4 +62,12 @@ public class IterationTest {
           generator.generate();
         });
   }
+
+  @Test
+  public void shouldSimulatePreviousIterations() {
+    for (long i = 0; i < 1e3; i++) {
+      Generator simulation = new Generator(ITERATION_SCHEMA, RNG, i);
+      assertThat("Different on iteration " + i, simulation.generate(), is(generator.generate()));
+    }
+  }
 }
