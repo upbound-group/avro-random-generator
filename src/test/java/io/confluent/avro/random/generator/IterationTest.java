@@ -63,7 +63,7 @@ public class IterationTest {
 
   @Test
   public void shouldSimulatePreviousIterations() {
-    for (long i = 0; i < 1e3; i++) {
+    for (long i = 0; i < 1000; i++) {
       Generator simulation = new Generator.Builder()
           .schemaString(ITERATION_SCHEMA)
           .generation(i)
