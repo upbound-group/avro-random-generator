@@ -566,19 +566,7 @@ public class Generator {
           ITERATION_PROP_STEP
       ));
     }
-    Object initialProp = startProp;
-    if (iterationProps.containsKey(ITERATION_PROP_INITIAL)) {
-      initialProp = iterationProps.get(ITERATION_PROP_INITIAL);
-      if (!(initialProp instanceof Boolean)) {
-        throw new RuntimeException(String.format(
-            "%s field of %s property for a boolean schema must be a boolean, was %s instead",
-            ITERATION_PROP_INITIAL,
-            ITERATION_PROP,
-            initialProp.getClass().getName()
-        ));
-      }
-    }
-    return new BooleanIterator((Boolean) initialProp);
+    return new BooleanIterator((Boolean) startProp);
   }
 
   private Iterator<Object> getIntegralIterator(

@@ -40,7 +40,6 @@ public class IterationTest {
   @Test
   public void shouldBeginIterationAtInitialValue() {
     final GenericRecord generated = (GenericRecord) generator.generate();
-    assertThat(generated.get("boolean_iteration_offset"), is(true));
     assertThat(generated.get("int_iteration_offset"), is(40));
     assertThat(generated.get("long_iteration_offset"), is(0L));
     assertThat(generated.get("float_iteration_offset"), is(0.0f));

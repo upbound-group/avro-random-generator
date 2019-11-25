@@ -15,18 +15,6 @@
         }
       },
       {
-        "name": "boolean_iteration_offset",
-        "type": {
-          "type": "boolean",
-          "arg.properties": {
-            "iteration": {
-              "start": false,
-              "initial": true
-            }
-          }
-        }
-      },
-      {
         "name": "int_iteration",
         "type": {
           "type": "int",
