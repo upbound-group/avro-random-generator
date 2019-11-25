@@ -622,8 +622,7 @@ public class Generator {
 
     // If an odd number of records have been generated previously, then the boolean will have
     // changed state effectively once, and so the start state should be inverted.
-    startProp = (generation % 2 == 1) ^ ((Boolean) startProp);
-    return new BooleanIterator((Boolean) startProp);
+    return new BooleanIterator((generation % 2 == 1) ^ ((Boolean) startProp));
   }
 
   private Iterator<Object> getIntegralIterator(
