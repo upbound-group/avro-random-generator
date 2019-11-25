@@ -22,7 +22,6 @@ import java.util.stream.Collectors;
 public class GeneratorTest {
 
   private static final String SCHEMA_TEST_DIR = "test-schemas";
-  private static final Random RNG = new Random();
   private final String fileName;
   private final String content;
 
@@ -45,7 +44,9 @@ public class GeneratorTest {
 
   @Test
   public void shouldHandleSchema() {
-    final Generator generator = new Generator(content, RNG);
+    final Generator generator = new Generator.Builder()
+        .schemaString(content)
+        .build();
     final Object generated = generator.generate();
     System.out.println(fileName + ": " + generated);
   }
@@ -69,8 +70,14 @@ public class GeneratorTest {
   @Test
   public void shouldGenerateValuesDeterministically() {
     long seed = 100L;
-    Generator generatorA = new Generator(content, new Random(seed));
-    Generator generatorB = new Generator(content, new Random(seed));
+    Generator generatorA = new Generator.Builder()
+        .schemaString(content)
+        .random(new Random(seed))
+        .build();
+    Generator generatorB = new Generator.Builder()
+        .schemaString(content)
+        .random(new Random(seed))
+        .build();
     assertEquals(generatorA.generate(), generatorB.generate());
     assertEquals(generatorA.generate(), generatorB.generate());
   }

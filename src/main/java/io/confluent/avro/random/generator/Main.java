@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.Random;
 
 /* TODO:  Find a good argument parser that doesn't strip double quotes off of arguments and allows
           for mutually exclusive options to cancel each other out without error */
@@ -301,14 +300,13 @@ public class Main {
   }
 
   private static Generator getGenerator(String schema, String schemaFile) throws IOException {
-    Random random = new Random();
     if (schema != null) {
-      return new Generator(schema, random);
+      return new Generator.Builder().schemaString(schema).build();
     } else if (!schemaFile.equals("-")) {
-      return new Generator(new File(schemaFile), random);
+      return new Generator.Builder().schemaFile(new File(schemaFile)).build();
     } else {
       System.err.println("Reading schema from stdin...");
-      return new Generator(System.in, random);
+      return new Generator.Builder().schemaStream(System.in).build();
     }
   }
 

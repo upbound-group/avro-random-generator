@@ -8,13 +8,11 @@ import org.apache.avro.generic.GenericRecord;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Random;
 import java.util.stream.IntStream;
 
 
 public class IterationTest {
 
-  private static final Random RNG = new Random();
   private static final String ITERATION_SCHEMA =
       ResourceUtil.loadContent("test-schemas/iteration.json");
 
@@ -22,7 +20,7 @@ public class IterationTest {
 
   @Before
   public void setUp() {
-    generator = new Generator(ITERATION_SCHEMA, RNG);
+    generator = new Generator.Builder().schemaString(ITERATION_SCHEMA).build();
   }
 
   @Test
@@ -58,7 +56,7 @@ public class IterationTest {
   public void shouldGenerateFromSameSchemaOnMultipleThreads() {
     IntStream.range(0, 10).parallel()
         .forEach(idx -> {
-          final Generator generator = new Generator(ITERATION_SCHEMA, new Random());
+          final Generator generator = new Generator.Builder().schemaString(ITERATION_SCHEMA).build();
           generator.generate();
         });
   }
@@ -66,7 +64,10 @@ public class IterationTest {
   @Test
   public void shouldSimulatePreviousIterations() {
     for (long i = 0; i < 1e3; i++) {
-      Generator simulation = new Generator(ITERATION_SCHEMA, RNG, i);
+      Generator simulation = new Generator.Builder()
+          .schemaString(ITERATION_SCHEMA)
+          .generation(i)
+          .build();
       assertThat("Different on iteration " + i, simulation.generate(), is(generator.generate()));
     }
   }

@@ -195,11 +195,12 @@ public class Generator {
    * @param topLevelSchema The schema to generate values for.
    * @param random The object to use for generating randomness when producing values.
    */
+  @Deprecated
   public Generator(Schema topLevelSchema, Random random) {
     this(topLevelSchema, random, 0L);
   }
 
-  public Generator(Schema topLevelSchema, Random random, long generation) {
+  protected Generator(Schema topLevelSchema, Random random, long generation) {
     this.topLevelSchema = topLevelSchema;
     this.random = random;
     this.generation = generation;
@@ -210,12 +211,9 @@ public class Generator {
    * @param schemaString An Avro Schema represented as a string.
    * @param random The object to use for generating randomness when producing values.
    */
+  @Deprecated
   public Generator(String schemaString, Random random) {
-    this(schemaString, random, 0L);
-  }
-
-  public Generator(String schemaString, Random random, long count) {
-    this(new Schema.Parser().parse(schemaString), random, count);
+    this(new Schema.Parser().parse(schemaString), random);
   }
 
   /**
@@ -224,12 +222,9 @@ public class Generator {
    * @param random The object to use for generating randomness when producing values.
    * @throws IOException if an error occurs while reading from the input stream.
    */
+  @Deprecated
   public Generator(InputStream schemaStream, Random random) throws IOException {
-    this(schemaStream, random, 0L);
-  }
-
-  public Generator(InputStream schemaStream, Random random, long count) throws IOException {
-    this(new Schema.Parser().parse(schemaStream), random, count);
+    this(new Schema.Parser().parse(schemaStream), random);
   }
 
   /**
@@ -238,12 +233,57 @@ public class Generator {
    * @param random The object to use for generating randomness when producing values.
    * @throws IOException if an error occurs while reading from the schema file.
    */
+  @Deprecated
   public Generator(File schemaFile, Random random) throws IOException {
-    this(schemaFile, random, 0L);
+    this(new Schema.Parser().parse(schemaFile), random);
   }
 
-  public Generator(File schemaFile, Random random, long count) throws IOException {
-    this(new Schema.Parser().parse(schemaFile), random, count);
+  public static class Builder {
+
+    private Schema topLevelSchema;
+    private Random random;
+    private long generation;
+    private Schema.Parser parser;
+
+    public Builder() {
+      parser = new Schema.Parser();
+      random = new Random();
+      generation = 0L;
+    }
+
+    public Builder schema(Schema schema) {
+      topLevelSchema = schema;
+      return this;
+    }
+
+    public Builder schemaFile(File schemaFile) throws IOException {
+      topLevelSchema = parser.parse(schemaFile);
+      return this;
+    }
+
+    public Builder schemaStream(InputStream schemaStream) throws IOException {
+      topLevelSchema = parser.parse(schemaStream);
+      return this;
+    }
+
+    public Builder schemaString(String schemaString) {
+      topLevelSchema = parser.parse(schemaString);
+      return this;
+    }
+
+    public Builder random(Random random) {
+      this.random = random;
+      return this;
+    }
+
+    public Builder generation(long generation) {
+      this.generation = generation;
+      return this;
+    }
+
+    public Generator build() {
+      return new Generator(topLevelSchema, random, generation);
+    }
   }
 
   /**
