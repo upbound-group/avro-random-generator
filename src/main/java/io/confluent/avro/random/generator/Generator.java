@@ -188,7 +188,7 @@ public class Generator {
 
   private final Schema topLevelSchema;
   private final Random random;
-  private final long count;
+  private final long generation;
 
   /**
    * Creates a generator out of an already-parsed {@link Schema}.
@@ -199,10 +199,10 @@ public class Generator {
     this(topLevelSchema, random, 0L);
   }
 
-  public Generator(Schema topLevelSchema, Random random, long count) {
+  public Generator(Schema topLevelSchema, Random random, long generation) {
     this.topLevelSchema = topLevelSchema;
     this.random = random;
-    this.count = count;
+    this.generation = generation;
   }
 
   /**
@@ -582,7 +582,7 @@ public class Generator {
 
     // If an odd number of records have been generated previously, then the boolean will have
     // changed state effectively once, and so the start state should be inverted.
-    startProp = (count % 2 == 1) ^ ((Boolean) startProp);
+    startProp = (generation % 2 == 1) ^ ((Boolean) startProp);
     return new BooleanIterator((Boolean) startProp);
   }
 
@@ -694,7 +694,7 @@ public class Generator {
         iterationStart,
         iterationRestart,
         iterationStep,
-        count,
+        generation,
         type
     );
   }
@@ -807,7 +807,7 @@ public class Generator {
         iterationStart,
         iterationRestart,
         iterationStep,
-        count,
+        generation,
         type
     );
   }
