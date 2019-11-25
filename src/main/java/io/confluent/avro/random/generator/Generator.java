@@ -1481,7 +1481,7 @@ public class Generator {
       if (count > 0) {
         current = BigDecimal.valueOf(count)
             .multiply(this.step)
-            .divideAndRemainder(this.modulo)[1];
+            .remainder(this.modulo);
       }
     }
 
@@ -1490,7 +1490,7 @@ public class Generator {
       BigDecimal result = current.add(start);
       current = current
           .add(step)
-          .divideAndRemainder(modulo)[1];
+          .remainder(modulo);
       switch (type) {
         case FLOAT:
           return result.floatValue();
