@@ -1454,10 +1454,10 @@ public class Generator {
 
     @Override
     public Object next() {
+      BigDecimal result = current.add(start);
       current = current
           .add(step)
           .divideAndRemainder(modulo)[1];
-      BigDecimal result = current.add(start);
       switch (type) {
         case FLOAT:
           return result.floatValue();
