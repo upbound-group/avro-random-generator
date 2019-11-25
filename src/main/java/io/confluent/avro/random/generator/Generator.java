@@ -1410,44 +1410,44 @@ public class Generator {
       INTEGER, LONG
     }
 
-    private final long start;
-    private final long restart;
-    private final long step;
+    private final BigInteger start;
+    private final BigInteger restart;
+    private final BigInteger step;
     private final Type type;
-    private long current;
+    private BigInteger current;
 
     public IntegralIterator(long start, long restart, long step, long count, Type type) {
-      this.start = start;
-      this.restart = restart;
-      this.step = step;
+      this.start = BigInteger.valueOf(start);
+      this.restart = BigInteger.valueOf(restart);
+      this.step = BigInteger.valueOf(step);
       this.type = type;
-      current = start;
+      current = BigInteger.ZERO;
       if (count > 0) {
+        // This is essentially the following expression when ignoring negative values:
+        // current = (count * step) % (restart - start)
+        // except BigInteger::mod only operates on positive numbers, so remove and re-add the sign after the modulo.
         current = BigInteger.valueOf(count)
-            .multiply(BigInteger.valueOf(step).abs())
-            .mod(
-                BigInteger.valueOf(restart)
-                    .subtract(BigInteger.valueOf(start))
-                    .abs())
-            .multiply(step > 0 ? BigInteger.ONE : BigInteger.ONE.negate())
-            .add(BigInteger.valueOf(start))
-            .longValue();
+            .multiply(this.step)
+            .abs()
+            .mod(this.restart.subtract(this.start).abs())
+            .multiply(this.step.divide(this.step.abs()));
       }
     }
 
     @Override
     public Object next() {
-      long result = current;
-      if ((step > 0 && current >= restart - step) || (step < 0 && current <= restart - step)) {
-        current = start + modulo(step - (restart - current), restart - start);
-      } else {
-        current += step;
-      }
+      BigInteger result = current.add(start);
+      current = current
+          .add(step)
+          .abs()
+          .mod(restart.subtract(start).abs())
+          .multiply(step.divide(step.abs()));
+
       switch (type) {
         case INTEGER:
-          return (int) result;
+          return result.intValue();
         case LONG:
-          return result;
+          return result.longValue();
         default:
           throw new RuntimeException(String.format("Unexpected Type: %s", type));
       }
@@ -1456,12 +1456,6 @@ public class Generator {
     @Override
     public boolean hasNext() {
       return true;
-    }
-
-    // first % second, but with first guarantee that the result will always have the same sign as
-    // second
-    private static long modulo(long first, long second) {
-      return ((first % second) + second) % second;
     }
   }
 
