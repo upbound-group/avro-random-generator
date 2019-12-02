@@ -18,6 +18,8 @@ package io.confluent.avro.random.generator;
 
 import com.mifmif.common.regex.Generex;
 
+import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 
 import org.apache.avro.generic.GenericData;
@@ -38,6 +40,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -50,6 +53,7 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 
@@ -184,6 +188,8 @@ public class Generator {
    */
   public static final String ITERATION_PROP_STEP = "step";
 
+  static final String DECIMAL_LOGICAL_TYPE_NAME = "decimal";
+
   private final Schema topLevelSchema;
   private final Random random;
 
@@ -309,7 +315,7 @@ public class Generator {
       case BOOLEAN:
         return generateBoolean(propertiesProp);
       case BYTES:
-        return generateBytes(propertiesProp);
+        return generateBytes(schema, propertiesProp);
       case DOUBLE:
         return generateDouble(propertiesProp);
       case ENUM:
@@ -350,6 +356,21 @@ public class Generator {
           propertiesProp.getClass().getName()
       ));
     }
+  }
+
+  private <L extends LogicalType> L getLogicalType(
+      Schema schema,
+      String logicalTypeName,
+      Class<L> logicalTypeClass
+  ) {
+    return Optional.ofNullable(schema.getLogicalType())
+        .filter(logicalType -> Objects.equals(logicalTypeName, logicalType.getName()))
+        .map(logicalTypeClass::cast)
+        .orElse(null);
+  }
+
+  private LogicalTypes.Decimal getDecimalLogicalType(Schema schema) {
+    return getLogicalType(schema, DECIMAL_LOGICAL_TYPE_NAME, LogicalTypes.Decimal.class);
   }
 
   private void enforceMutualExclusion(
@@ -967,9 +988,15 @@ public class Generator {
     }
   }
 
-  private ByteBuffer generateBytes(Map propertiesProp) {
-    byte[] bytes = new byte[getLengthBounds(propertiesProp.get(LENGTH_PROP)).random()];
-    random.nextBytes(bytes);
+  private ByteBuffer generateBytes(Schema schema, Map propertiesProp) {
+    LogicalTypes.Decimal decimalLogicalType = getDecimalLogicalType(schema);
+    byte[] bytes;
+    if (decimalLogicalType != null) {
+      bytes = generateDecimal(decimalLogicalType);
+    } else {
+      bytes = new byte[getLengthBounds(propertiesProp.get(LENGTH_PROP)).random()];
+      random.nextBytes(bytes);
+    }
     return ByteBuffer.wrap(bytes);
   }
 
@@ -1008,9 +1035,52 @@ public class Generator {
   }
 
   private GenericFixed generateFixed(Schema schema) {
-    byte[] bytes = new byte[schema.getFixedSize()];
-    random.nextBytes(bytes);
+    LogicalTypes.Decimal decimalLogicalType = getDecimalLogicalType(schema);
+    byte[] bytes;
+    if (decimalLogicalType != null) {
+      bytes = generateDecimal(decimalLogicalType);
+    } else {
+      bytes = new byte[schema.getFixedSize()];
+      random.nextBytes(bytes);
+    }
     return new GenericData.Fixed(schema, bytes);
+  }
+
+  /*
+    According to the Avro 1.9.1 spec (http://avro.apache.org/docs/1.9.1/spec.html#Decimal):
+
+    "The decimal logical type represents an arbitrary-precision signed decimal number of the form
+  unscaled × 10-scale."
+
+    "A decimal logical type annotates Avro bytes or fixed types. The byte array must contain the
+  two's-complement representation of the unscaled integer value in big-endian byte order. The scale
+  is fixed, and is specified using an attribute."
+
+
+    We generate a random decimal here by starting with a value of zero, then repeatedly multiplying
+  by 10^15 (15 is the minimum number of significant digits in a double), and adding a new random
+  value in the range [0, 10^15) generated using the Random object for this generator. This is done
+  until the precision of the current value is equal to or greater than the precision of the logical
+  type. At this point, any extra digits (of there should be at most 14) are rounded off from the
+  value, a sign is randomly selected, it is converted to big-endian two's-complement representation,
+  and returned.
+   */
+  private byte[] generateDecimal(LogicalTypes.Decimal decimalLogicalType) {
+    BigInteger bigInteger = BigInteger.ZERO;
+    final long maxIncrementExclusive = 1_000_000_000_000_000L;
+    int precision;
+    for (precision = 0; precision < decimalLogicalType.getPrecision(); precision += 15) {
+      bigInteger = bigInteger.multiply(BigInteger.valueOf(maxIncrementExclusive));
+      long increment = (long) (random.nextDouble() * maxIncrementExclusive);
+      bigInteger = bigInteger.add(BigInteger.valueOf(increment));
+    }
+    bigInteger = bigInteger.divide(
+        BigInteger.TEN.pow(precision - decimalLogicalType.getPrecision())
+    );
+    if (random.nextBoolean()) {
+      bigInteger = bigInteger.negate();
+    }
+    return bigInteger.toByteArray();
   }
 
   private Float generateFloat(Map propertiesProp) {

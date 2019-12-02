@@ -1,0 +1,26 @@
+{
+  "type": "record",
+  "name": "decimal_logical_type_test",
+  "namespace": "io.confluent.avro.random.generator",
+  "fields": [
+    {
+      "name": "decimal_fixed",
+      "type": {
+        "type": "fixed",
+        "name": "decimal_fixed_schema",
+        "logicalType": "decimal",
+        "precision": 150,
+        "scale": 42,
+        "size": 69
+      }
+    },
+    {
+      "name": "decimal_bytes",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 256
+      }
+    }
+  ]
+}
