@@ -18,6 +18,8 @@ package io.confluent.avro.random.generator;
 
 import com.mifmif.common.regex.Generex;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -192,15 +194,22 @@ public class Generator {
 
   private final Schema topLevelSchema;
   private final Random random;
+  private final long generation;
 
   /**
    * Creates a generator out of an already-parsed {@link Schema}.
    * @param topLevelSchema The schema to generate values for.
    * @param random The object to use for generating randomness when producing values.
    */
+  @Deprecated
   public Generator(Schema topLevelSchema, Random random) {
+    this(topLevelSchema, random, 0L);
+  }
+
+  protected Generator(Schema topLevelSchema, Random random, long generation) {
     this.topLevelSchema = topLevelSchema;
     this.random = random;
+    this.generation = generation;
   }
 
   /**
@@ -208,6 +217,7 @@ public class Generator {
    * @param schemaString An Avro Schema represented as a string.
    * @param random The object to use for generating randomness when producing values.
    */
+  @Deprecated
   public Generator(String schemaString, Random random) {
     this(new Schema.Parser().parse(schemaString), random);
   }
@@ -218,6 +228,7 @@ public class Generator {
    * @param random The object to use for generating randomness when producing values.
    * @throws IOException if an error occurs while reading from the input stream.
    */
+  @Deprecated
   public Generator(InputStream schemaStream, Random random) throws IOException {
     this(new Schema.Parser().parse(schemaStream), random);
   }
@@ -228,8 +239,57 @@ public class Generator {
    * @param random The object to use for generating randomness when producing values.
    * @throws IOException if an error occurs while reading from the schema file.
    */
+  @Deprecated
   public Generator(File schemaFile, Random random) throws IOException {
     this(new Schema.Parser().parse(schemaFile), random);
+  }
+
+  public static class Builder {
+
+    private Schema topLevelSchema;
+    private Random random;
+    private long generation;
+    private Schema.Parser parser;
+
+    public Builder() {
+      parser = new Schema.Parser();
+      random = new Random();
+      generation = 0L;
+    }
+
+    public Builder schema(Schema schema) {
+      topLevelSchema = schema;
+      return this;
+    }
+
+    public Builder schemaFile(File schemaFile) throws IOException {
+      topLevelSchema = parser.parse(schemaFile);
+      return this;
+    }
+
+    public Builder schemaStream(InputStream schemaStream) throws IOException {
+      topLevelSchema = parser.parse(schemaStream);
+      return this;
+    }
+
+    public Builder schemaString(String schemaString) {
+      topLevelSchema = parser.parse(schemaString);
+      return this;
+    }
+
+    public Builder random(Random random) {
+      this.random = random;
+      return this;
+    }
+
+    public Builder generation(long generation) {
+      this.generation = generation;
+      return this;
+    }
+
+    public Generator build() {
+      return new Generator(topLevelSchema, random, generation);
+    }
   }
 
   /**
@@ -580,7 +640,10 @@ public class Generator {
           ITERATION_PROP_STEP
       ));
     }
-    return new BooleanIterator((Boolean) startProp);
+
+    // If an odd number of records have been generated previously, then the boolean will have
+    // changed state effectively once, and so the start state should be inverted.
+    return new BooleanIterator((generation % 2 == 1) ^ ((Boolean) startProp));
   }
 
   private Iterator<Object> getIntegralIterator(
@@ -691,6 +754,7 @@ public class Generator {
         iterationStart,
         iterationRestart,
         iterationStep,
+        generation,
         type
     );
   }
@@ -803,6 +867,7 @@ public class Generator {
         iterationStart,
         iterationRestart,
         iterationStep,
+        generation,
         type
     );
   }
@@ -1415,33 +1480,44 @@ public class Generator {
       INTEGER, LONG
     }
 
-    private final long start;
-    private final long restart;
-    private final long step;
+    private final BigInteger start;
+    private final BigInteger restart;
+    private final BigInteger step;
     private final Type type;
-    private long current;
+    private BigInteger current;
 
-    public IntegralIterator(long start, long restart, long step, Type type) {
-      this.start = start;
-      this.restart = restart;
-      this.step = step;
+    public IntegralIterator(long start, long restart, long step, long count, Type type) {
+      this.start = BigInteger.valueOf(start);
+      this.restart = BigInteger.valueOf(restart);
+      this.step = BigInteger.valueOf(step);
       this.type = type;
-      current = start;
+      current = BigInteger.ZERO;
+      if (count > 0) {
+        // This is essentially the following expression when ignoring negative values:
+        // current = (count * step) % (restart - start)
+        // except BigInteger::mod only operates on positive numbers, so remove and re-add the sign after the modulo.
+        current = BigInteger.valueOf(count)
+            .multiply(this.step)
+            .abs()
+            .mod(this.restart.subtract(this.start).abs())
+            .multiply(this.step.divide(this.step.abs()));
+      }
     }
 
     @Override
     public Object next() {
-      long result = current;
-      if ((step > 0 && current >= restart - step) || (step < 0 && current <= restart - step)) {
-        current = start + modulo(step - (restart - current), restart - start);
-      } else {
-        current += step;
-      }
+      BigInteger result = current.add(start);
+      current = current
+          .add(step)
+          .abs()
+          .mod(restart.subtract(start).abs())
+          .multiply(step.divide(step.abs()));
+
       switch (type) {
         case INTEGER:
-          return (int) result;
+          return result.intValue();
         case LONG:
-          return result;
+          return result.longValue();
         default:
           throw new RuntimeException(String.format("Unexpected Type: %s", type));
       }
@@ -1450,12 +1526,6 @@ public class Generator {
     @Override
     public boolean hasNext() {
       return true;
-    }
-
-    // first % second, but with first guarantee that the result will always have the same sign as
-    // second
-    private static long modulo(long first, long second) {
-      return ((first % second) + second) % second;
     }
   }
 
@@ -1464,33 +1534,38 @@ public class Generator {
       FLOAT, DOUBLE
     }
 
-    private final double start;
-    private final double restart;
-    private final double step;
+    private final BigDecimal start;
+    private final BigDecimal restart;
+    private final BigDecimal modulo;
+    private final BigDecimal step;
     private final Type type;
-    private double current;
+    private BigDecimal current;
 
-    public DecimalIterator(double start, double restart, double step, Type type) {
-      this.start = start;
-      this.restart = restart;
-      this.step = step;
+    public DecimalIterator(double start, double restart, double step, long count, Type type) {
+      this.start = BigDecimal.valueOf(start);
+      this.restart = BigDecimal.valueOf(restart);
+      this.modulo = this.restart.subtract(this.start);
+      this.step = BigDecimal.valueOf(step);
       this.type = type;
-      current = start;
+      current = BigDecimal.ZERO;
+      if (count > 0) {
+        current = BigDecimal.valueOf(count)
+            .multiply(this.step)
+            .remainder(this.modulo);
+      }
     }
 
     @Override
     public Object next() {
-      double result = current;
-      if ((step > 0 && current >= restart - step) || (step < 0 && current <= restart - step)) {
-        current = start + modulo(step - (restart - current), restart - start);
-      } else {
-        current += step;
-      }
+      BigDecimal result = current.add(start);
+      current = current
+          .add(step)
+          .remainder(modulo);
       switch (type) {
         case FLOAT:
-          return (float) result;
+          return result.floatValue();
         case DOUBLE:
-          return result;
+          return result.doubleValue();
         default:
           throw new RuntimeException(String.format("Unexpected Type: %s", type));
       }
@@ -1499,12 +1574,6 @@ public class Generator {
     @Override
     public boolean hasNext() {
       return true;
-    }
-
-    // first % second, but with first guarantee that the result will always have the same sign as
-    // second
-    private static double modulo(double first, double second) {
-      return ((first % second) + second) % second;
     }
   }
 
