@@ -19,6 +19,9 @@ package io.confluent.avro.random.generator;
 import com.mifmif.common.regex.Generex;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 
 import org.apache.avro.generic.GenericData;
@@ -39,6 +42,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -51,6 +55,7 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 
@@ -191,17 +196,26 @@ public class Generator {
    */
   public static final String ITERATION_PROP_INITIAL = "initial";
 
+  static final String DECIMAL_LOGICAL_TYPE_NAME = "decimal";
+
   private final Schema topLevelSchema;
   private final Random random;
+  private final long generation;
 
   /**
    * Creates a generator out of an already-parsed {@link Schema}.
    * @param topLevelSchema The schema to generate values for.
    * @param random The object to use for generating randomness when producing values.
    */
+  @Deprecated
   public Generator(Schema topLevelSchema, Random random) {
+    this(topLevelSchema, random, 0L);
+  }
+
+  protected Generator(Schema topLevelSchema, Random random, long generation) {
     this.topLevelSchema = topLevelSchema;
     this.random = random;
+    this.generation = generation;
   }
 
   /**
@@ -209,6 +223,7 @@ public class Generator {
    * @param schemaString An Avro Schema represented as a string.
    * @param random The object to use for generating randomness when producing values.
    */
+  @Deprecated
   public Generator(String schemaString, Random random) {
     this(new Schema.Parser().parse(schemaString), random);
   }
@@ -219,6 +234,7 @@ public class Generator {
    * @param random The object to use for generating randomness when producing values.
    * @throws IOException if an error occurs while reading from the input stream.
    */
+  @Deprecated
   public Generator(InputStream schemaStream, Random random) throws IOException {
     this(new Schema.Parser().parse(schemaStream), random);
   }
@@ -229,8 +245,57 @@ public class Generator {
    * @param random The object to use for generating randomness when producing values.
    * @throws IOException if an error occurs while reading from the schema file.
    */
+  @Deprecated
   public Generator(File schemaFile, Random random) throws IOException {
     this(new Schema.Parser().parse(schemaFile), random);
+  }
+
+  public static class Builder {
+
+    private Schema topLevelSchema;
+    private Random random;
+    private long generation;
+    private Schema.Parser parser;
+
+    public Builder() {
+      parser = new Schema.Parser();
+      random = new Random();
+      generation = 0L;
+    }
+
+    public Builder schema(Schema schema) {
+      topLevelSchema = schema;
+      return this;
+    }
+
+    public Builder schemaFile(File schemaFile) throws IOException {
+      topLevelSchema = parser.parse(schemaFile);
+      return this;
+    }
+
+    public Builder schemaStream(InputStream schemaStream) throws IOException {
+      topLevelSchema = parser.parse(schemaStream);
+      return this;
+    }
+
+    public Builder schemaString(String schemaString) {
+      topLevelSchema = parser.parse(schemaString);
+      return this;
+    }
+
+    public Builder random(Random random) {
+      this.random = random;
+      return this;
+    }
+
+    public Builder generation(long generation) {
+      this.generation = generation;
+      return this;
+    }
+
+    public Generator build() {
+      return new Generator(topLevelSchema, random, generation);
+    }
   }
 
   /**
@@ -316,7 +381,7 @@ public class Generator {
       case BOOLEAN:
         return generateBoolean(propertiesProp);
       case BYTES:
-        return generateBytes(propertiesProp);
+        return generateBytes(schema, propertiesProp);
       case DOUBLE:
         return generateDouble(propertiesProp);
       case ENUM:
@@ -357,6 +422,21 @@ public class Generator {
           propertiesProp.getClass().getName()
       ));
     }
+  }
+
+  private <L extends LogicalType> L getLogicalType(
+      Schema schema,
+      String logicalTypeName,
+      Class<L> logicalTypeClass
+  ) {
+    return Optional.ofNullable(schema.getLogicalType())
+        .filter(logicalType -> Objects.equals(logicalTypeName, logicalType.getName()))
+        .map(logicalTypeClass::cast)
+        .orElse(null);
+  }
+
+  private LogicalTypes.Decimal getDecimalLogicalType(Schema schema) {
+    return getLogicalType(schema, DECIMAL_LOGICAL_TYPE_NAME, LogicalTypes.Decimal.class);
   }
 
   private void enforceMutualExclusion(
@@ -566,7 +646,10 @@ public class Generator {
           ITERATION_PROP_STEP
       ));
     }
-    return new BooleanIterator((Boolean) startProp);
+
+    // If an odd number of records have been generated previously, then the boolean will have
+    // changed state effectively once, and so the start state should be inverted.
+    return new BooleanIterator((generation % 2 == 1) ^ ((Boolean) startProp));
   }
 
   private Iterator<Object> getIntegralIterator(
@@ -684,6 +767,7 @@ public class Generator {
         iterationRestart,
         iterationStep,
         iterationInitial,
+        generation,
         type
     );
   }
@@ -803,6 +887,7 @@ public class Generator {
         iterationRestart,
         iterationStep,
         iterationInitial,
+        generation,
         type
     );
   }
@@ -1012,9 +1097,15 @@ public class Generator {
     }
   }
 
-  private ByteBuffer generateBytes(Map propertiesProp) {
-    byte[] bytes = new byte[getLengthBounds(propertiesProp.get(LENGTH_PROP)).random()];
-    random.nextBytes(bytes);
+  private ByteBuffer generateBytes(Schema schema, Map propertiesProp) {
+    LogicalTypes.Decimal decimalLogicalType = getDecimalLogicalType(schema);
+    byte[] bytes;
+    if (decimalLogicalType != null) {
+      bytes = generateDecimal(decimalLogicalType);
+    } else {
+      bytes = new byte[getLengthBounds(propertiesProp.get(LENGTH_PROP)).random()];
+      random.nextBytes(bytes);
+    }
     return ByteBuffer.wrap(bytes);
   }
 
@@ -1053,9 +1144,52 @@ public class Generator {
   }
 
   private GenericFixed generateFixed(Schema schema) {
-    byte[] bytes = new byte[schema.getFixedSize()];
-    random.nextBytes(bytes);
+    LogicalTypes.Decimal decimalLogicalType = getDecimalLogicalType(schema);
+    byte[] bytes;
+    if (decimalLogicalType != null) {
+      bytes = generateDecimal(decimalLogicalType);
+    } else {
+      bytes = new byte[schema.getFixedSize()];
+      random.nextBytes(bytes);
+    }
     return new GenericData.Fixed(schema, bytes);
+  }
+
+  /*
+    According to the Avro 1.9.1 spec (http://avro.apache.org/docs/1.9.1/spec.html#Decimal):
+
+    "The decimal logical type represents an arbitrary-precision signed decimal number of the form
+  unscaled × 10-scale."
+
+    "A decimal logical type annotates Avro bytes or fixed types. The byte array must contain the
+  two's-complement representation of the unscaled integer value in big-endian byte order. The scale
+  is fixed, and is specified using an attribute."
+
+
+    We generate a random decimal here by starting with a value of zero, then repeatedly multiplying
+  by 10^15 (15 is the minimum number of significant digits in a double), and adding a new random
+  value in the range [0, 10^15) generated using the Random object for this generator. This is done
+  until the precision of the current value is equal to or greater than the precision of the logical
+  type. At this point, any extra digits (of there should be at most 14) are rounded off from the
+  value, a sign is randomly selected, it is converted to big-endian two's-complement representation,
+  and returned.
+   */
+  private byte[] generateDecimal(LogicalTypes.Decimal decimalLogicalType) {
+    BigInteger bigInteger = BigInteger.ZERO;
+    final long maxIncrementExclusive = 1_000_000_000_000_000L;
+    int precision;
+    for (precision = 0; precision < decimalLogicalType.getPrecision(); precision += 15) {
+      bigInteger = bigInteger.multiply(BigInteger.valueOf(maxIncrementExclusive));
+      long increment = (long) (random.nextDouble() * maxIncrementExclusive);
+      bigInteger = bigInteger.add(BigInteger.valueOf(increment));
+    }
+    bigInteger = bigInteger.divide(
+        BigInteger.TEN.pow(precision - decimalLogicalType.getPrecision())
+    );
+    if (random.nextBoolean()) {
+      bigInteger = bigInteger.negate();
+    }
+    return bigInteger.toByteArray();
   }
 
   private Float generateFloat(Map propertiesProp) {
@@ -1390,33 +1524,45 @@ public class Generator {
       INTEGER, LONG
     }
 
-    private final long start;
-    private final long restart;
-    private final long step;
+    private final BigInteger start;
+    private final BigInteger restart;
+    private final BigInteger step;
     private final Type type;
-    private long current;
+    private BigInteger current;
 
-    public IntegralIterator(long start, long restart, long step, long initial, Type type) {
-      this.start = start;
-      this.restart = restart;
-      this.step = step;
+    public IntegralIterator(long start, long restart, long step, long initial, long count, Type type) {
+      this.start = BigInteger.valueOf(start);
+      this.restart = BigInteger.valueOf(restart);
+      this.step = BigInteger.valueOf(step);
       this.type = type;
-      current = initial;
+      current = BigInteger.valueOf(initial).subtract(this.start);
+      if (count > 0) {
+        // This is essentially the following expression when ignoring negative values:
+        // current = (count * step) % (restart - start)
+        // except BigInteger::mod only operates on positive numbers, so remove and re-add the sign after the modulo.
+        current = BigInteger.valueOf(count)
+            .multiply(this.step)
+            .add(current)
+            .abs()
+            .mod(this.restart.subtract(this.start).abs())
+            .multiply(this.step.divide(this.step.abs()));
+      }
     }
 
     @Override
     public Object next() {
-      long result = current;
-      if ((step > 0 && current >= restart - step) || (step < 0 && current <= restart - step)) {
-        current = start + modulo(step - (restart - current), restart - start);
-      } else {
-        current += step;
-      }
+      BigInteger result = current.add(start);
+      current = current
+          .add(step)
+          .abs()
+          .mod(restart.subtract(start).abs())
+          .multiply(step.divide(step.abs()));
+
       switch (type) {
         case INTEGER:
-          return (int) result;
+          return result.intValue();
         case LONG:
-          return result;
+          return result.longValue();
         default:
           throw new RuntimeException(String.format("Unexpected Type: %s", type));
       }
@@ -1425,12 +1571,6 @@ public class Generator {
     @Override
     public boolean hasNext() {
       return true;
-    }
-
-    // first % second, but with first guarantee that the result will always have the same sign as
-    // second
-    private static long modulo(long first, long second) {
-      return ((first % second) + second) % second;
     }
   }
 
@@ -1446,13 +1586,19 @@ public class Generator {
     private final Type type;
     private BigDecimal current;
 
-    public DecimalIterator(double start, double restart, double step, double initial, Type type) {
+    public DecimalIterator(double start, double restart, double step, double initial, long count, Type type) {
       this.start = BigDecimal.valueOf(start);
       this.restart = BigDecimal.valueOf(restart);
       this.modulo = this.restart.subtract(this.start);
       this.step = BigDecimal.valueOf(step);
       this.type = type;
       current = BigDecimal.valueOf(initial).subtract(this.start);
+      if (count > 0) {
+        current = BigDecimal.valueOf(count)
+            .multiply(this.step)
+            .add(current)
+            .remainder(this.modulo);
+      }
     }
 
     @Override
@@ -1460,7 +1606,7 @@ public class Generator {
       BigDecimal result = current.add(start);
       current = current
           .add(step)
-          .divideAndRemainder(modulo)[1];
+          .remainder(modulo);
       switch (type) {
         case FLOAT:
           return result.floatValue();
