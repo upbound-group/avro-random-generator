@@ -27,6 +27,19 @@
         }
       },
       {
+        "name": "int_iteration_offset",
+        "type": {
+          "type": "int",
+          "arg.properties": {
+            "iteration": {
+              "start": 50,
+              "restart": -10,
+              "initial": 40
+            }
+          }
+        }
+      },
+      {
         "name": "long_iteration",
         "type": {
           "type": "long",
@@ -35,6 +48,20 @@
               "start": -50,
               "restart": 100,
               "step": 47
+            }
+          }
+        }
+      },
+      {
+        "name": "long_iteration_offset",
+        "type": {
+          "type": "long",
+          "arg.properties": {
+            "iteration": {
+              "start": -50,
+              "restart": 100,
+              "step": 47,
+              "initial": 0
             }
           }
         }
@@ -52,6 +79,19 @@
         }
       },
       {
+        "name": "float_iteration_offset",
+        "type": {
+          "type":"float",
+          "arg.properties": {
+            "iteration": {
+              "start": 10.4,
+              "step": 5.1,
+              "initial": 0
+            }
+          }
+        }
+      },
+      {
         "name": "double_iteration",
         "type": {
           "type": "double",
@@ -60,6 +100,20 @@
               "start": 0.0,
               "restart": 10.0,
               "step": 27.3
+            }
+          }
+        }
+      },
+      {
+        "name": "double_iteration_offset",
+        "type": {
+          "type": "double",
+          "arg.properties": {
+            "iteration": {
+              "start": 0.0,
+              "restart": 10.0,
+              "step": 27.3,
+              "initial": 5.0
             }
           }
         }

@@ -76,17 +76,19 @@ read from the file after decoding with the specified format (currently
 "json" and "binary" are the only supported values, and "binary" may be
 somewhat buggy).
 + __iteration:__ A JSON object that conforms to the following format:
-`{"start": <start>, "restart": <restart>, "step": <step>}` ("start" has
-to be specified, but "restart" and "step" do not). If provided with a
+`{"start": <start>, "restart": <restart>, "step": <step>, "initial": 
+<initial> }` ("start" has to be specified, but "restart", "step", 
+and "initial" do not). If provided with a
 numeric schema, ensures that the first generated value will be equal to
-&lt;start&gt;, and successive values will increase by &lt;step&gt;,
-wrapping around at &lt;restart&gt;; &lt;step&gt; will default to 1 if
-&lt;restart&gt; is greater than &lt;step&gt;, will default to -1 if
-&lt;restart&gt; is less than &lt;step&gt;, and an error will be thrown
-if &lt;restart&gt; is equal to &lt;step&gt;. If provided with a boolean
+&lt;initial&gt; (or &lt;start&gt; if &lt;initial&gt; is not specified),
+and successive values will increase by &lt;step&gt;, wrapping around at 
+&lt;restart&gt; back to &lt;start&gt;; &lt;step&gt; will default to 1 if
+&lt;restart&gt; is greater than &lt;start&gt;, will default to -1 if
+&lt;restart&gt; is less than &lt;start&gt;, and an error will be thrown
+if &lt;restart&gt; is equal to &lt;start&gt;. If provided with a boolean
 schema, only &lt;start&gt; may be specified; the resulting values will
 begin with &lt;start&gt; and alternate from `true` to `false` and from
-`false` to `true` from that point on.
+`false` to `true` from that point on. 
 + __range:__ A JSON object that conforms to the following format:
 `{"min": <min>, "max": <max>}` (at least one of "min" or "max" must be
 specified). If provided, ensures that the generated number will be

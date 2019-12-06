@@ -36,6 +36,15 @@ public class IterationTest {
   }
 
   @Test
+  public void shouldBeginIterationAtInitialValue() {
+    final GenericRecord generated = (GenericRecord) generator.generate();
+    assertThat(generated.get("int_iteration_offset"), is(40));
+    assertThat(generated.get("long_iteration_offset"), is(0L));
+    assertThat(generated.get("float_iteration_offset"), is(0.0f));
+    assertThat(generated.get("double_iteration_offset"), is(5.0));
+  }
+
+  @Test
   public void shouldSupportStringIteration() {
     final GenericRecord first = (GenericRecord) generator.generate();
     final GenericRecord second = (GenericRecord) generator.generate();

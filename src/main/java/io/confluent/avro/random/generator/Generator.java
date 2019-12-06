@@ -189,6 +189,12 @@ public class Generator {
    * {@link #ITERATION_PROP_RESTART} is less than the value for {@link #ITERATION_PROP_START}.
    */
   public static final String ITERATION_PROP_STEP = "step";
+  /**
+   * The name of the attribute for specifying the initial value in a schema with iterative
+   * generation. If given, must be a numeric type that is integral if the given schema is as well.
+   * If not given, defaults to the value for {@link #ITERATION_PROP_START}.
+   */
+  public static final String ITERATION_PROP_INITIAL = "initial";
 
   static final String DECIMAL_LOGICAL_TYPE_NAME = "decimal";
 
@@ -650,6 +656,7 @@ public class Generator {
       Long iterationStartField,
       Long iterationRestartField,
       Long iterationStepField,
+      Long iterationInitialField,
       IntegralIterator.Type type) {
 
     if (iterationStartField == null) {
@@ -750,10 +757,16 @@ public class Generator {
       }
     }
 
+    long iterationInitial = iterationStart;
+    if (iterationInitialField != null) {
+      iterationInitial = iterationInitialField;
+    }
+
     return new IntegralIterator(
         iterationStart,
         iterationRestart,
         iterationStep,
+        iterationInitial,
         generation,
         type
     );
@@ -763,6 +776,7 @@ public class Generator {
       Double iterationStartField,
       Double iterationRestartField,
       Double iterationStepField,
+      Double iterationInitialField,
       DecimalIterator.Type type) {
 
     if (iterationStartField == null) {
@@ -863,10 +877,16 @@ public class Generator {
       }
     }
 
+    double iterationInitial = iterationStart;
+    if (iterationInitialField != null) {
+      iterationInitial = iterationInitialField;
+    }
+
     return new DecimalIterator(
         iterationStart,
         iterationRestart,
         iterationStep,
+        iterationInitial,
         generation,
         type
     );
@@ -927,10 +947,16 @@ public class Generator {
         ITERATION_PROP_STEP,
         iterationProps
     );
+    Double iterationInitialField = getDecimalNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_INITIAL,
+        iterationProps
+    );
     return getDecimalIterator(
         iterationStartField,
         iterationRestartField,
         iterationStepField,
+        iterationInitialField,
         DecimalIterator.Type.DOUBLE
     );
   }
@@ -951,10 +977,16 @@ public class Generator {
         ITERATION_PROP_STEP,
         iterationProps
     );
+    Float iterationInitialField = getFloatNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_INITIAL,
+        iterationProps
+    );
     return getDecimalIterator(
         iterationStartField != null ? iterationStartField.doubleValue() : null,
         iterationRestartField != null ? iterationRestartField.doubleValue() : null,
         iterationStepField != null ? iterationStepField.doubleValue() : null,
+        iterationInitialField != null ? iterationInitialField.doubleValue() : null,
         DecimalIterator.Type.FLOAT
     );
   }
@@ -975,10 +1007,16 @@ public class Generator {
         ITERATION_PROP_STEP,
         iterationProps
     );
+    Long iterationInitialField = getIntegralNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_INITIAL,
+        iterationProps
+    );
     return getIntegralIterator(
         iterationStartField,
         iterationRestartField,
         iterationStepField,
+        iterationInitialField,
         IntegralIterator.Type.LONG
     );
   }
@@ -1013,10 +1051,16 @@ public class Generator {
         ITERATION_PROP_STEP,
         iterationProps
     );
+    Integer iterationInitialField = getIntegerNumberField(
+        ITERATION_PROP,
+        ITERATION_PROP_INITIAL,
+        iterationProps
+    );
     return getIntegralIterator(
         iterationStartField != null ? iterationStartField.longValue() : null,
         iterationRestartField != null ? iterationRestartField.longValue() : null,
         iterationStepField != null ? iterationStepField.longValue() : null,
+        iterationInitialField != null ? iterationInitialField.longValue() : null,
         IntegralIterator.Type.INTEGER
     );
   }
@@ -1486,18 +1530,19 @@ public class Generator {
     private final Type type;
     private BigInteger current;
 
-    public IntegralIterator(long start, long restart, long step, long count, Type type) {
+    public IntegralIterator(long start, long restart, long step, long initial, long count, Type type) {
       this.start = BigInteger.valueOf(start);
       this.restart = BigInteger.valueOf(restart);
       this.step = BigInteger.valueOf(step);
       this.type = type;
-      current = BigInteger.ZERO;
+      current = BigInteger.valueOf(initial).subtract(this.start);
       if (count > 0) {
         // This is essentially the following expression when ignoring negative values:
         // current = (count * step) % (restart - start)
         // except BigInteger::mod only operates on positive numbers, so remove and re-add the sign after the modulo.
         current = BigInteger.valueOf(count)
             .multiply(this.step)
+            .add(current)
             .abs()
             .mod(this.restart.subtract(this.start).abs())
             .multiply(this.step.divide(this.step.abs()));
@@ -1541,16 +1586,17 @@ public class Generator {
     private final Type type;
     private BigDecimal current;
 
-    public DecimalIterator(double start, double restart, double step, long count, Type type) {
+    public DecimalIterator(double start, double restart, double step, double initial, long count, Type type) {
       this.start = BigDecimal.valueOf(start);
       this.restart = BigDecimal.valueOf(restart);
       this.modulo = this.restart.subtract(this.start);
       this.step = BigDecimal.valueOf(step);
       this.type = type;
-      current = BigDecimal.ZERO;
+      current = BigDecimal.valueOf(initial).subtract(this.start);
       if (count > 0) {
         current = BigDecimal.valueOf(count)
             .multiply(this.step)
+            .add(current)
             .remainder(this.modulo);
       }
     }
