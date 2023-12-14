@@ -48,7 +48,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
-import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -381,6 +380,9 @@ public class Generator {
 
   private Object generateObject(Schema schema) {
     Map propertiesProp = getProperties(schema).orElse(Collections.emptyMap());
+    if (propertiesProp.containsKey(FAKER_PROP)) {
+      return generateFaker(propertiesProp);
+    }
     if (propertiesProp.containsKey(OPTIONS_PROP)) {
       return generateOption(schema, propertiesProp);
     }
@@ -1372,13 +1374,15 @@ public class Generator {
     return generexCache.get(schema).random(lengthBounds.min(), lengthBounds.max() - 1);
   }
 
-  private String generateFakerString(Object fakerProp) {
+  private Object generateFaker(Map propertiesMap) {
+    Object fakerProp = propertiesMap.get(FAKER_PROP);
+
     if (fakerProp instanceof String) {
       ExpressionParser parser = new SpelExpressionParser();
       Expression exp = parser.parseExpression((String)fakerProp);
       Faker faker = new Faker(random);
       EvaluationContext context = new StandardEvaluationContext(faker);
-      return (String) exp.getValue(context);
+      return exp.getValue(context);
     } else {
       throw new RuntimeException(String.format("%s property must be a string", FAKER_PROP));
     }
@@ -1394,7 +1398,6 @@ public class Generator {
 
   private String generateString(Schema schema, Map propertiesProp) {
     Object regexProp = propertiesProp.get(REGEX_PROP);
-    Object fakerProp = propertiesProp.get(FAKER_PROP);
 
     String result;
     if (regexProp != null) {
@@ -1406,8 +1409,6 @@ public class Generator {
         lengthBounds = getLengthBounds(lengthProp);
       }
       result = generateRegexString(schema, regexProp, lengthBounds);
-    } else if (fakerProp != null) {
-      result = generateFakerString(fakerProp);
     } else {
       result = generateRandomString(getLengthBounds(propertiesProp).random());
     }
