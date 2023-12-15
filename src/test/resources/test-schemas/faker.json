@@ -22,6 +22,16 @@
               "faker": "number().digits(8)"
             }
           }
+      },
+      {
+        "name": "complex",
+        "type":
+        {
+          "type": "string",
+          "arg.properties": {
+            "faker": "number().digits(T(java.lang.Math).abs(-8))"
+          }
+        }
       }
     ]
 }
