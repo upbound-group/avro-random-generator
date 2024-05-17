@@ -1,0 +1,37 @@
+{
+  "type": "record",
+  "name": "regex_test",
+  "fields":
+    [
+      {
+        "name": "no_args",
+        "type":
+          {
+            "type": "string",
+            "arg.properties": {
+              "faker": "name().fullName()"
+            }
+          }
+      },
+      {
+        "name": "with_args",
+        "type":
+          {
+            "type": "string",
+            "arg.properties": {
+              "faker": "number().digits(8)"
+            }
+          }
+      },
+      {
+        "name": "complex",
+        "type":
+        {
+          "type": "string",
+          "arg.properties": {
+            "faker": "number().digits(T(java.lang.Math).abs(-8))"
+          }
+        }
+      }
+    ]
+}

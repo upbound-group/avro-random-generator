@@ -16,6 +16,7 @@
 
 package io.confluent.avro.random.generator;
 
+import com.github.javafaker.Faker;
 import com.mifmif.common.regex.Generex;
 
 import java.math.BigDecimal;
@@ -34,6 +35,11 @@ import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.Expression;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 
 import java.io.EOFException;
 import java.io.File;
@@ -42,7 +48,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
-import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -97,6 +102,12 @@ public class Generator {
    * be used in conjunction with {@link #LENGTH_PROP}. Must be given as a string.
    */
   public static final String REGEX_PROP = "regex";
+
+  /**
+   * The name of the attribute for specifying which faker function to use to generate data. Given
+   * as a string.
+   */
+  public static final String FAKER_PROP = "faker";
 
   /**
    * The name of the attribute for specifying a prefix that generated values should begin with. Will
@@ -369,6 +380,9 @@ public class Generator {
 
   private Object generateObject(Schema schema) {
     Map propertiesProp = getProperties(schema).orElse(Collections.emptyMap());
+    if (propertiesProp.containsKey(FAKER_PROP)) {
+      return generateFaker(propertiesProp);
+    }
     if (propertiesProp.containsKey(OPTIONS_PROP)) {
       return generateOption(schema, propertiesProp);
     }
@@ -1358,6 +1372,20 @@ public class Generator {
     // Generex.random(low, high) generates in range [low, high]; we want [low, high), so subtract
     // 1 from maxLength
     return generexCache.get(schema).random(lengthBounds.min(), lengthBounds.max() - 1);
+  }
+
+  private Object generateFaker(Map propertiesMap) {
+    Object fakerProp = propertiesMap.get(FAKER_PROP);
+
+    if (fakerProp instanceof String) {
+      ExpressionParser parser = new SpelExpressionParser();
+      Expression exp = parser.parseExpression((String)fakerProp);
+      Faker faker = new Faker(random);
+      EvaluationContext context = new StandardEvaluationContext(faker);
+      return exp.getValue(context);
+    } else {
+      throw new RuntimeException(String.format("%s property must be a string", FAKER_PROP));
+    }
   }
 
   private String generateRandomString(int length) {
